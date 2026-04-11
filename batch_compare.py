@@ -316,12 +316,12 @@ def generate_comparison(image_path: str,
     #   col 0-1  = left panel  (paper features)
     #   col 2    = vertical separator
     #   col 3-4  = right panel (extracted features)
-    fig = plt.figure(figsize=(22, 10), facecolor=_BG)
+    fig = plt.figure(figsize=(30, 12), facecolor=_BG)
     gs = GridSpec(
         3, 5, figure=fig,
         height_ratios=[0.07, 1, 0.10],
         width_ratios=[1.1, 0.9, 0.015, 1.1, 0.9],
-        hspace=0.22, wspace=0.08,
+        hspace=0.25, wspace=0.28,
         left=0.02, right=0.99, top=0.97, bottom=0.04,
     )
 

@@ -186,12 +186,12 @@ def generate_report(image_path: str, model_path: str,
     BLUE  = "#60a5fa"
 
     # ── Figure layout ────────────────────────────────────────────────────────
-    fig = plt.figure(figsize=(16, 10), facecolor=BG)
+    fig = plt.figure(figsize=(22, 12), facecolor=BG)
     gs = GridSpec(
         3, 2, figure=fig,
         height_ratios=[0.06, 1, 0.10],
         width_ratios=[1.1, 0.9],
-        hspace=0.22, wspace=0.06,
+        hspace=0.25, wspace=0.35,
         left=0.03, right=0.98, top=0.97, bottom=0.04,
     )
 
