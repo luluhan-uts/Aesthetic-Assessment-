@@ -23,6 +23,7 @@ from sklearn.model_selection import cross_val_score, KFold
 from sklearn.metrics import r2_score, mean_absolute_error
 from sklearn.pipeline import Pipeline
 from config import FEATURE_COLS, TARGET_COL
+from feature_extractor import normalize_features
 
 
 def load_data(csv_path: str) -> pd.DataFrame:
@@ -42,6 +43,13 @@ def load_data(csv_path: str) -> pd.DataFrame:
 
     # Drop rows with any missing values in features or target
     df = df.dropna(subset=FEATURE_COLS + [TARGET_COL])
+
+    # Normalize scale-sensitive features so data.csv and extracted features
+    # are on the same scale (viewport crops vs. full-page screenshots).
+    total_area = df['NonTextArea'] + df['TextArea']
+    df['NonTextArea'] = df['NonTextArea'] / total_area.clip(lower=1)
+    df['TextArea']    = df['TextArea']    / total_area.clip(lower=1)
+    df['QuadTree']    = np.log(df['QuadTree'] + 1)
 
     print(f"Loaded {len(df)} infographics after cleaning.")
     return df

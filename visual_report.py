@@ -36,7 +36,7 @@ import matplotlib.patches as mpatches
 from matplotlib.gridspec import GridSpec
 
 from config import FEATURE_COLS, DATA_CSV, MODEL_FROM_IMAGES_PKL
-from feature_extractor import extract_features
+from feature_extractor import extract_features, normalize_features
 
 
 # ---------------------------------------------------------------------------
@@ -149,7 +149,7 @@ def generate_report(image_path: str, model_path: str,
 
     # ── Extract features & predict ──────────────────────────────────────────
     print("Extracting features...")
-    features = extract_features(image_path)
+    features = normalize_features(extract_features(image_path))
     X = np.array([[features.get(col, 0) for col in FEATURE_COLS]])
     score = float(np.clip(pipeline.predict(X)[0], 1.0, 9.0))
     print(f"  Predicted appeal: {score:.2f} / 9.0  ({score_label(score)})")

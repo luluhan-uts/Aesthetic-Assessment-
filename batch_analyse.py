@@ -31,7 +31,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score, mean_absolute_error
-from feature_extractor import extract_features
+from feature_extractor import extract_features, normalize_features
 from config import FEATURE_COLS, TARGET_COL, DATA_CSV, IMAGES_FOLDER, MODEL_PKL
 
 
@@ -148,7 +148,7 @@ def run(images_folder: str, csv_path: str, output_path: str):
     for i, sid in enumerate(common_ids):
         path = image_map[sid]
         try:
-            feats = extract_features(path)
+            feats = normalize_features(extract_features(path))
             feats["Stimulus ID"] = sid
             feats["image_path"] = path
             feats[TARGET_COL] = df_csv.loc[sid, TARGET_COL]
@@ -173,16 +173,23 @@ def run(images_folder: str, csv_path: str, output_path: str):
     if not comparable:
         print("  Skipped: the CSV does not contain the paper's pre-computed feature columns.")
         print("  (This is expected when using an individual-ratings CSV.)")
-    for col in comparable:
-        extracted_vals = df_extracted[col]
-        csv_vals = df_csv.loc[df_extracted.index, col]
-        # Normalise by CSV mean to get relative difference
-        csv_mean = csv_vals.mean()
-        if csv_mean == 0:
-            continue
-        rel_diff = (extracted_vals - csv_vals).abs().mean() / csv_mean * 100
-        corr = extracted_vals.corr(csv_vals)
-        print(f"  {col:20s}  correlation={corr:+.3f}  mean_rel_diff={rel_diff:.1f}%")
+    else:
+        # Normalize CSV features the same way as extracted features for a fair comparison
+        df_csv_norm = df_csv.copy()
+        total_area = df_csv_norm['NonTextArea'] + df_csv_norm['TextArea']
+        df_csv_norm['NonTextArea'] = df_csv_norm['NonTextArea'] / total_area.clip(lower=1)
+        df_csv_norm['TextArea']    = df_csv_norm['TextArea']    / total_area.clip(lower=1)
+        df_csv_norm['QuadTree']    = np.log(df_csv_norm['QuadTree'] + 1)
+
+        for col in comparable:
+            extracted_vals = df_extracted[col]
+            csv_vals = df_csv_norm.loc[df_extracted.index, col]
+            csv_mean = csv_vals.mean()
+            if csv_mean == 0:
+                continue
+            rel_diff = (extracted_vals - csv_vals).abs().mean() / csv_mean * 100
+            corr = extracted_vals.corr(csv_vals)
+            print(f"  {col:20s}  correlation={corr:+.3f}  mean_rel_diff={rel_diff:.1f}%")
 
     # ---------------------------------------------------------------------------
     # Train / test split using EXTRACTED features → predict appeal
@@ -207,17 +214,28 @@ def run(images_folder: str, csv_path: str, output_path: str):
         y_pred = pipeline.predict(X_test)
         y_pred = np.clip(y_pred, 1.0, 9.0)
 
-        r2 = r2_score(y_test, y_pred)
+        r2  = r2_score(y_test, y_pred)
         mae = mean_absolute_error(y_test, y_pred)
-        print(f"  Test R²  = {r2:.3f}")
-        print(f"  Test MAE = {mae:.3f}  (on 1–9 scale)")
-        print(f"  Train size: {len(X_train)}  |  Test size: {len(X_test)}")
+        errors = np.abs(y_pred - y_test)
+        within_05 = (errors <= 0.5).mean() * 100
+        within_10 = (errors <= 1.0).mean() * 100
+
+        print(f"\n  {'─'*42}")
+        print(f"  {'ACCURACY SUMMARY':^42}")
+        print(f"  {'─'*42}")
+        print(f"  Train size      : {len(X_train)}  |  Test size: {len(X_test)}")
+        print(f"  R²  (test)      : {r2:.3f}  (1.0 = perfect)")
+        print(f"  MAE (test)      : {mae:.3f}  (on 1–9 scale)")
+        print(f"  Within ±0.5 pts : {within_05:.1f}%")
+        print(f"  Within ±1.0 pts : {within_10:.1f}%")
+        print(f"  {'─'*42}")
 
         print("\n  Predicted vs. actual (test set):")
         print(f"  {'Stimulus ID':>12}  {'Actual':>8}  {'Predicted':>10}  {'Error':>8}")
         for sid, actual, pred in zip(idx_test, y_test, y_pred):
             err = pred - actual
-            print(f"  {sid:>12}  {actual:>8.2f}  {pred:>10.2f}  {err:>+8.2f}")
+            flag = "  ✓" if abs(err) <= 1.0 else "  ✗"
+            print(f"  {sid:>12}  {actual:>8.2f}  {pred:>10.2f}  {err:>+8.2f}{flag}")
 
         # Save model trained on full extracted data
         pipeline_full = Pipeline([

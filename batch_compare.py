@@ -20,7 +20,7 @@ Usage (interactive file picker — recommended):
 
 Usage (command-line):
     python batch_compare.py --images ./infographics --csv data.csv \\
-                            --model model.pkl --output ./comparisons
+                            --model model_from_images.pkl --output ./comparisons
 
 NOTE: data.csv must be the per-infographic summary CSV that contains the
 paper's pre-computed feature columns (ImageArea, TextGroup, …).
@@ -41,8 +41,8 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.gridspec import GridSpec
 
-from config import FEATURE_COLS, DATA_CSV, IMAGES_FOLDER, MODEL_PKL
-from feature_extractor import extract_features
+from config import FEATURE_COLS, TARGET_COL, DATA_CSV, IMAGES_FOLDER, MODEL_FROM_IMAGES_PKL
+from feature_extractor import extract_features, normalize_features
 from batch_analyse import load_csv, find_images   # reuse existing helpers
 
 
@@ -261,7 +261,7 @@ def generate_comparison(image_path: str,
                         paper_feats: dict,
                         bundle: dict,
                         ds_mean, ds_std,
-                        output_path: str) -> None:
+                        output_path: str) -> tuple:
     """
     Generates and saves a side-by-side comparison PNG for a single image.
 
@@ -274,6 +274,10 @@ def generate_comparison(image_path: str,
     ds_mean      : dataset mean Series for z-scoring (or None)
     ds_std       : dataset std Series for z-scoring (or None)
     output_path  : where to save the PNG
+
+    Returns
+    -------
+    (score_paper, score_extracted) — predicted scores for both panels
     """
     pipeline = bundle["pipeline"]
     cv_r2    = bundle.get("cv_r2")
@@ -288,7 +292,7 @@ def generate_comparison(image_path: str,
         img_bgr = cv2.resize(img_bgr, (int(w * scale), int(h * scale)))
 
     # — Extract features ———————————————————————————————————————————————————
-    extracted_feats = extract_features(image_path)
+    extracted_feats = normalize_features(extract_features(image_path))
 
     # — Predict scores ————————————————————————————————————————————————————
     def predict(feat_dict):
@@ -375,6 +379,7 @@ def generate_comparison(image_path: str,
     plt.savefig(output_path, dpi=150, bbox_inches="tight",
                 facecolor=_BG, edgecolor="none")
     plt.close()
+    return score_paper, score_extracted
 
 
 # ---------------------------------------------------------------------------
@@ -430,15 +435,21 @@ def run(images_folder: str, csv_path: str,
     print(f"\nGenerating {n} comparison reports → {output_folder}")
     print("-" * 60)
 
+    actuals          = []
+    preds_extracted  = []
+
     for i, sid in enumerate(common_ids):
         path        = image_map[sid]
         out_path    = os.path.join(output_folder, f"{sid:04d}_comparison.png")
-        paper_feats = {col: float(df_csv.loc[sid, col]) for col in FEATURE_COLS}
+        paper_feats = normalize_features({col: float(df_csv.loc[sid, col]) for col in FEATURE_COLS})
 
         try:
-            generate_comparison(path, sid, paper_feats, bundle,
-                                ds_mean, ds_std, out_path)
-            print(f"  [{i+1:>{width}}/{n}]  ID {sid:4d}  ✓")
+            _, score_e = generate_comparison(path, sid, paper_feats, bundle,
+                                                   ds_mean, ds_std, out_path)
+            actual = float(df_csv.loc[sid, TARGET_COL])
+            actuals.append(actual)
+            preds_extracted.append(score_e)
+            print(f"  [{i+1:>{width}}/{n}]  ID {sid:4d}  actual={actual:.2f}  pred={score_e:.2f}  ✓")
             succeeded.append(sid)
         except Exception as e:
             print(f"  [{i+1:>{width}}/{n}]  ID {sid:4d}  ✗  {e}")
@@ -449,6 +460,30 @@ def run(images_folder: str, csv_path: str,
     if failed:
         print(f"Failed IDs: {failed}")
     print(f"\nAll reports saved to: {output_folder}")
+
+    # ── Accuracy summary ──────────────────────────────────────────────────────
+    if len(actuals) >= 2:
+        import numpy as np
+        from sklearn.metrics import r2_score, mean_absolute_error
+
+        y_true  = np.array(actuals)
+        y_pred  = np.array(preds_extracted)
+        errors  = np.abs(y_pred - y_true)
+        r2      = r2_score(y_true, y_pred)
+        mae     = mean_absolute_error(y_true, y_pred)
+        w05     = (errors <= 0.5).mean() * 100
+        w10     = (errors <= 1.0).mean() * 100
+
+        print()
+        print(f"  {'─'*44}")
+        print(f"  {'ACCURACY SUMMARY (extracted features)':^44}")
+        print(f"  {'─'*44}")
+        print(f"  Images scored   : {len(actuals)}")
+        print(f"  R²              : {r2:.3f}  (1.0 = perfect)")
+        print(f"  MAE             : {mae:.3f}  (on 1–9 scale)")
+        print(f"  Within ±0.5 pts : {w05:.1f}%")
+        print(f"  Within ±1.0 pts : {w10:.1f}%")
+        print(f"  {'─'*44}")
 
 
 # ---------------------------------------------------------------------------
@@ -463,7 +498,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--images", default=IMAGES_FOLDER)
     parser.add_argument("--csv",    default=DATA_CSV)
-    parser.add_argument("--model",  default=MODEL_PKL)
+    parser.add_argument("--model",  default=MODEL_FROM_IMAGES_PKL)
     parser.add_argument("--output", default=os.path.join(_here, "comparisons"))
     args = parser.parse_args()
 

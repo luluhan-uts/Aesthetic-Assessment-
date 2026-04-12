@@ -11,7 +11,7 @@ Usage:
 import argparse
 import pickle
 import numpy as np
-from feature_extractor import extract_features
+from feature_extractor import extract_features, normalize_features
 from config import FEATURE_COLS, MODEL_PKL
 
 
@@ -36,9 +36,9 @@ def predict(image_path: str, model_path: str) -> dict:
 
     pipeline = bundle["pipeline"]
 
-    # Extract features
+    # Extract and normalize features
     print(f"Extracting features from: {image_path}")
-    features = extract_features(image_path)
+    features = normalize_features(extract_features(image_path))
 
     print("\nExtracted features:")
     for col in FEATURE_COLS:
