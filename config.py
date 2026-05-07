@@ -29,4 +29,29 @@ FEATURE_COLS = [
     "Complexity",
 ]
 
+# ── Feature groups for Assignment 3 comparative experiments ──────────────────
+
+# Traditional image-aesthetic-related features
+IMAGE_FEATURES = [
+    "QuadTree",
+    "Saturation",
+    "Colorfulness2",
+    "Colorfulness1",
+]
+
+# Infographic-specific structural/layout features
+INFOGRAPHIC_FEATURES = [
+    "ImageArea",
+    "TextGroup",
+    "NonTextArea",
+    "TextArea",
+    "Complexity",
+]
+
+# Combined feature set
+ALL_FEATURES = IMAGE_FEATURES + INFOGRAPHIC_FEATURES
+
+# Safety check
+assert set(ALL_FEATURES) == set(FEATURE_COLS)
+
 TARGET_COL = "Final Score"

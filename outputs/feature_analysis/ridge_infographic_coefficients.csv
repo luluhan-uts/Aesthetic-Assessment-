@@ -1,0 +1,6 @@
+model_file,model_name,feature_group,feature,coefficient,abs_coefficient,direction
+ridge_infographic.pkl,Ridge(alpha=1),INFOGRAPHIC_FEATURES,TextGroup,0.13678338727490735,0.13678338727490735,positive
+ridge_infographic.pkl,Ridge(alpha=1),INFOGRAPHIC_FEATURES,ImageArea,-0.12917093470781393,0.12917093470781393,negative
+ridge_infographic.pkl,Ridge(alpha=1),INFOGRAPHIC_FEATURES,TextArea,-0.1025449169143892,0.1025449169143892,negative
+ridge_infographic.pkl,Ridge(alpha=1),INFOGRAPHIC_FEATURES,NonTextArea,0.1025449169143877,0.1025449169143877,positive
+ridge_infographic.pkl,Ridge(alpha=1),INFOGRAPHIC_FEATURES,Complexity,-0.04422383343931247,0.04422383343931247,negative
