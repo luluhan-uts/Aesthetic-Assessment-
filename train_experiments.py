@@ -9,6 +9,7 @@ This script:
 3. Trains separate models
 4. Evaluates performance
 5. Saves trained models
+6. Saves model comparison results to CSV
 
 Project 47 — Assignment 3
 """
@@ -189,6 +190,20 @@ def run_experiment(
 
     print("\nExperiment completed successfully.")
 
+    # --------------------------------------------------------
+    # RETURN RESULTS
+    # --------------------------------------------------------
+
+    return {
+        "feature_group": feature_group_name,
+        "model": "Ridge(alpha=1)",
+        "r2": float(r2),
+        "mae": float(mae),
+        "rmse": float(rmse),
+        "num_features": len(feature_group),
+        "num_samples": int(len(df)),
+    }
+
 
 # ============================================================
 # MAIN
@@ -198,38 +213,67 @@ def main():
 
     df = load_data()
 
+    experiment_results = []
+
     # --------------------------------------------------------
     # IMAGE FEATURES ONLY
     # --------------------------------------------------------
 
-    run_experiment(
-        df=df,
-        feature_group=IMAGE_FEATURES,
-        feature_group_name="IMAGE_FEATURES",
-        output_filename="ridge_image.pkl",
+    experiment_results.append(
+        run_experiment(
+            df=df,
+            feature_group=IMAGE_FEATURES,
+            feature_group_name="IMAGE_FEATURES",
+            output_filename="ridge_image.pkl",
+        )
     )
 
     # --------------------------------------------------------
     # INFOGRAPHIC FEATURES ONLY
     # --------------------------------------------------------
 
-    run_experiment(
-        df=df,
-        feature_group=INFOGRAPHIC_FEATURES,
-        feature_group_name="INFOGRAPHIC_FEATURES",
-        output_filename="ridge_infographic.pkl",
+    experiment_results.append(
+        run_experiment(
+            df=df,
+            feature_group=INFOGRAPHIC_FEATURES,
+            feature_group_name="INFOGRAPHIC_FEATURES",
+            output_filename="ridge_infographic.pkl",
+        )
     )
 
     # --------------------------------------------------------
     # COMBINED FEATURES
     # --------------------------------------------------------
 
-    run_experiment(
-        df=df,
-        feature_group=ALL_FEATURES,
-        feature_group_name="ALL_FEATURES",
-        output_filename="ridge_combined.pkl",
+    experiment_results.append(
+        run_experiment(
+            df=df,
+            feature_group=ALL_FEATURES,
+            feature_group_name="ALL_FEATURES",
+            output_filename="ridge_combined.pkl",
+        )
     )
+
+    # --------------------------------------------------------
+    # SAVE COMPARISON RESULTS
+    # --------------------------------------------------------
+
+    os.makedirs("outputs/metrics", exist_ok=True)
+
+    results_df = pd.DataFrame(experiment_results)
+
+    results_path = "outputs/metrics/model_comparison.csv"
+
+    results_df.to_csv(results_path, index=False)
+
+    print("\n" + "=" * 52)
+    print("MODEL COMPARISON RESULTS SAVED")
+    print("=" * 52)
+
+    print(results_df)
+
+    print(f"\nSaved comparison CSV to:")
+    print(results_path)
 
 
 # ============================================================
